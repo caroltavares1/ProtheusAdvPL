@@ -1,0 +1,331 @@
+#include 'tlpp-core.th'
+#include 'tlpp-rest.th'
+
+
+Class SoliciteController
+
+	Data jResponse  as Json
+	Data oService   as Object
+
+	Public Method new() as Object
+
+	@Get("/api/v1/solicita")
+	Public Method get() as Logical
+
+	@Get("/api/v1/fornecedoresAmarrados")
+	Public Method fornecedoresAmarrados() as Logical
+
+	@Get("/api/v1/fornecedores")
+	Public Method fornecedores() as Logical
+
+	@Get("/api/v1/solicitacoes")
+	Public Method solicitacoes() as Logical
+
+	@Get("/api/v1/cotacoes")
+	Public Method cotacoes() as Logical
+
+	@Post("/api/v1/incluirSolicitacao")
+	Public Method incluirSolicitacao() as Logical
+
+	@Put("/api/v1/alterarSolicitacao")
+	Public Method alterarSolicitacao() as Logical
+
+	@Put("/api/v1/altera")
+	Public Method altera() as Logical
+
+	@Post("/api/v1/deletaSolicitacao")
+	Public Method deletaSolicitacao()  as Logical
+
+EndClass
+
+Method new() as Object Class SoliciteController
+	::oService  := SoliciteService():new()
+	::jResponse := JsonObject():new()
+Return self
+
+Method get() as Logical Class SoliciteController
+	Local lAtivAmb as Logical
+
+	If Select("SX2") == 0
+		RPCClearEnv()
+		RpcSetType(3)
+		RpcSetEnv("99", "01", , , , GetEnvServer(), { })
+		lAtivAmb := .T. // Seta se precisou montar o ambiente
+	Endif
+	//RpcSetEnv("01", "0101", , , , GetEnvServer(), { }) //petinho matriz
+
+	oRest:setKeyHeaderResponse('Content-Type','application/json; charset=utf-8')
+
+	::oService:solicita()
+
+	oRest:setResponse(::oService:execute())
+
+
+	if lAtivAmb
+		RpcClearEnv()   //Libera o Ambiente
+	EndIf
+Return .T.
+
+Method fornecedoresAmarrados() as Logical Class SoliciteController
+
+	Local lAtivAmb as Logical
+	Local cFiltro 		as Character
+	Local cCodigos      as Character
+
+	cFiltro  := ""
+	cCodigos := ""
+
+	If ValType(oRest:getQueryRequest():GetJsonText('filter')) <> "U"
+		cFiltro := oRest:getQueryRequest():GetJsonText('filter')
+	EndIf
+
+	If ValType(oRest:getQueryRequest():GetJsonText('codigos')) <> "U"
+		cCodigos := oRest:getQueryRequest():GetJsonText('codigos')
+	EndIf
+
+	If Select("SX2") == 0
+		RPCClearEnv()
+		RpcSetType(3)
+		RpcSetEnv("99", "01", , , , GetEnvServer(), { })
+		lAtivAmb := .T. // Seta se precisou montar o ambiente
+	Endif
+	//RpcSetEnv("01", "0101", , , , GetEnvServer(), { }) //petinho matriz
+
+	oRest:setKeyHeaderResponse('Content-Type','application/json; charset=utf-8')
+
+	::oService:fornecedoresAmarrados(cFiltro, cCodigos)
+
+	oRest:setResponse(::oService:execute())
+
+	If lAtivAmb
+		RpcClearEnv()   //Libera o Ambiente
+	EndIf
+
+Return .T.
+
+Method fornecedores() as Logical Class SoliciteController
+
+	Local lAtivAmb as Logical
+	Local cFiltro 		as Character
+	Local cCodigos      as Character
+
+	cFiltro  := ""
+	cCodigos := ""
+
+	If ValType(oRest:getQueryRequest():GetJsonText('filter')) <> "U"
+		cFiltro := oRest:getQueryRequest():GetJsonText('filter')
+	EndIf
+
+	If ValType(oRest:getQueryRequest():GetJsonText('id')) <> "U"
+		cCodigos := oRest:getQueryRequest():GetJsonText('id')
+	EndIf
+
+	If Select("SX2") == 0
+		RPCClearEnv()
+		RpcSetType(3)
+		RpcSetEnv("99", "01", , , , GetEnvServer(), { })
+		lAtivAmb := .T. // Seta se precisou montar o ambiente
+	Endif
+	//RpcSetEnv("01", "0101", , , , GetEnvServer(), { }) //petinho matriz
+
+	oRest:setKeyHeaderResponse('Content-Type','application/json; charset=utf-8')
+
+	::oService:fornecedores(cFiltro, cCodigos)
+
+	oRest:setResponse(::oService:execute())
+
+
+	If lAtivAmb
+		RpcClearEnv()   //Libera o Ambiente
+	EndIf
+
+Return .T.
+
+Method solicitacoes() as Logical Class SoliciteController
+
+	Local lAtivAmb as Logical
+
+	Local cFiltro 		as Character
+	Local cCotado 		as Character
+	//Local cCodigos      as Character
+
+	cFiltro  := ""
+	cCotado  := ""
+
+	If ValType(oRest:getQueryRequest():GetJsonText('filter')) <> "U"
+		cFiltro := oRest:getQueryRequest():GetJsonText('filter')
+	EndIf
+
+	If ValType(oRest:getQueryRequest():GetJsonText('cotado')) <> "U"
+		cCotado := oRest:getQueryRequest():GetJsonText('cotado')
+	EndIf
+
+	If Select("SX2") == 0
+		RPCClearEnv()
+		RpcSetType(3)
+		RpcSetEnv("99", "01", , , , GetEnvServer(), { })
+		lAtivAmb := .T. // Seta se precisou montar o ambiente
+	Endif
+	//RpcSetEnv("01", "0101", , , , GetEnvServer(), { }) //petinho matriz
+
+	oRest:setKeyHeaderResponse('Content-Type','application/json; charset=utf-8')
+
+	::oService:solicitacoes(cFiltro, cCotado)
+
+	oRest:setResponse(::oService:execute())
+
+	if lAtivAmb
+		RpcClearEnv()   //Libera o Ambiente
+	EndIf
+
+Return .T.
+
+Method cotacoes() as Logical Class SoliciteController
+	Local lAtivAmb as Logical
+
+	Local cFiltro 		as Character
+	//Local cCodigos      as Character
+
+	cFiltro  := ""
+	//cCodigos := ""
+
+	If ValType(oRest:getQueryRequest():GetJsonText('filter')) <> "U"
+		cFiltro := oRest:getQueryRequest():GetJsonText('filter')
+	EndIf
+
+	If Select("SX2") == 0
+		RPCClearEnv()
+		RpcSetType(3)
+		RpcSetEnv("99", "01", , , , GetEnvServer(), { })
+		lAtivAmb := .T. // Seta se precisou montar o ambiente
+	Endif
+	//RpcSetEnv("01", "0101", , , , GetEnvServer(), { }) //petinho matriz
+
+	oRest:setKeyHeaderResponse('Content-Type','application/json; charset=utf-8')
+
+	::oService:cotacoes(cFiltro)
+
+	oRest:setResponse(::oService:execute())
+
+	If lAtivAmb
+		RpcClearEnv()   //Libera o Ambiente
+	EndIf
+
+Return .T.
+
+Method incluirSolicitacao() as Logical Class SoliciteController
+	Local lAtivAmb as Logical
+
+	Local oBody					as Object
+	Local aBody                 as Array
+	oBody := JsonObject():New()
+
+	oBody:fromJson( oRest:GetBodyRequest() )
+	aBody := oBody['itens']
+
+	If Select("SX2") == 0
+		RPCClearEnv()
+		RpcSetType(3)
+		RpcSetEnv("99", "01", , , , GetEnvServer(), { })
+		lAtivAmb := .T. // Seta se precisou montar o ambiente
+	Endif
+
+	oRest:setKeyHeaderResponse('Content-Type','application/json; charset=utf-8')
+
+	::oService:incluirSolicitacao(aBody)
+
+	oRest:setResponse(::oService:execute())
+
+	If lAtivAmb
+		RpcClearEnv()   //Libera o Ambiente
+	EndIf
+Return .T.
+
+
+Method alterarSolicitacao() as Logical Class SoliciteController
+	Local lAtivAmb as Logical
+
+	Local oBody					as Object
+	Local aBody                 as Array
+	oBody := JsonObject():New()
+
+	oBody:fromJson( oRest:GetBodyRequest() )
+	aBody := oBody['itens']
+
+
+	If Select("SX2") == 0
+		RPCClearEnv()
+		RpcSetType(3)
+		RpcSetEnv("99", "01", , , , GetEnvServer(), { })
+		lAtivAmb := .T. // Seta se precisou montar o ambiente
+	Endif
+
+	oRest:setKeyHeaderResponse('Content-Type','application/json; charset=utf-8')
+
+	::oService:alterarSolicitacao(aBody)
+
+	oRest:setResponse(::oService:execute())
+
+	If lAtivAmb
+		RpcClearEnv()   //Libera o Ambiente
+	EndIf
+Return .T.
+
+Method altera() as Logical Class SoliciteController
+	Local lAtivAmb as Logical
+
+	Local oBody					as Object
+	Local aBody                 as Array
+	oBody := JsonObject():New()
+
+	oBody:fromJson( oRest:GetBodyRequest() )
+	aBody := oBody['itens']
+
+
+	If Select("SX2") == 0
+		RPCClearEnv()
+		RpcSetType(3)
+		RpcSetEnv("99", "01", , , , GetEnvServer(), { })
+		lAtivAmb := .T. // Seta se precisou montar o ambiente
+	Endif
+
+	oRest:setKeyHeaderResponse('Content-Type','application/json; charset=utf-8')
+
+	::oService:altera(aBody)
+
+	oRest:setResponse(::oService:execute())
+
+	If lAtivAmb
+		RpcClearEnv()   //Libera o Ambiente
+	EndIf
+Return .T.
+
+Method deletaSolicitacao() as Logical Class SoliciteController
+	Local lAtivAmb as Logical
+
+	Local oBody					as Object
+	Local cNumSol               as Character
+	oBody := JsonObject():New()
+
+	oBody:fromJson( oRest:GetBodyRequest() )
+	cNumSol := oBody['item']
+
+
+	If Select("SX2") == 0
+		RPCClearEnv()
+		RpcSetType(3)
+		RpcSetEnv("99", "01", , , , GetEnvServer(), { })
+		lAtivAmb := .T. // Seta se precisou montar o ambiente
+	Endif
+
+	oRest:setKeyHeaderResponse('Content-Type','application/json; charset=utf-8')
+
+	::oService:deletaSolicitacao(cNumSol)
+
+	oRest:setResponse(::oService:execute())
+
+
+	If lAtivAmb
+		RpcClearEnv()   //Libera o Ambiente
+	EndIf
+Return .T.

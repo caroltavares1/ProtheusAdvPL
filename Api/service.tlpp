@@ -1,0 +1,622 @@
+#include "tlpp-core.th"
+
+Class SoliciteService
+	Public Data jResponse as Json
+
+	Public method new()                   as Object
+	Public method solicita()              as Json
+	Public method solicitacoes()          as Json
+	Public method cotacoes()              as Json
+	Public method incluirSolicitacao()    as Json
+	Public method alterarSolicitacao()    as Json
+	Public method altera()                as Json
+	Public method deletaSolicitacao()     as Json
+	Public method fornecedoresAmarrados() as Json
+	Public method fornecedores()          as Json
+	Public method execute()    		      as Json
+
+EndClass
+
+Method new() as Object Class SoliciteService
+	::jResponse := JsonObject():New()
+Return Self
+
+Method solicita() as Json Class SoliciteService
+
+	Local cQuery          as Character
+	Local aProdutos       as Array
+	Local i               as Numeric
+
+	::jResponse["items"]    := JsonObject():New()
+
+	cQuery += "SELECT "
+	cQuery += "R_E_C_N_O_ AS ID, B1_COD AS COD, B1_DESC AS DESCR , B1_UM AS UNIDADE "
+	cQuery += "FROM " + RetSqlName("SB1") + " SB1
+	cQuery += " WHERE SB1.D_E_L_E_T_ <> '*'
+
+
+	MpSysOpenQuery(cQuery, "produtos")
+
+	aProdutos     := {}
+
+	While produtos->(!EoF())
+		aAdd(aProdutos, { produtos-> ID, produtos->COD, produtos-> DESCR, produtos-> UNIDADE })
+		produtos->(DbSkip())
+	End
+
+	If Len(aProdutos) > 0
+		::jResponse["items"] := Array(Len(aProdutos))
+		For i := 1 to Len(aProdutos)
+			::jResponse["items"][i]  := JsonObject():new()
+			::jResponse["items"][i]["id"]       := aProdutos[i,1]
+			::jResponse["items"][i]["codigo"]   := AllTrim(aProdutos[i,2])
+			::jResponse["items"][i]["desc"]   	:= AllTrim(aProdutos[i,3])
+			::jResponse["items"][i]["unidade"]  := AllTrim(aProdutos[i,4])
+		Next
+	EndIf
+
+	produtos->(DbCloseArea())
+
+Return ::jResponse
+
+Method solicitacoes(cFiltro as Character, cCotado as Character) as Json Class SoliciteService
+
+	Local cQuery          as Character
+	Local cFilter         as Character
+	Local aSolicitacoes   as Array
+	Local aFiltro         as Array
+	Local i               as Numeric
+	Local legenda         as Character
+
+	If !Empty(cFiltro) .AND. cFiltro <> 'null'
+		cFilter := '('
+		aFiltro := Separa(cFiltro, ',')
+		for i:= 1 to len(aFiltro)
+			If i != len(aFiltro)
+				cFilter += "'"+aFiltro[i]+"', "
+			else
+				cFilter += "'"+aFiltro[i]+"'"
+			EndIf
+		next
+		cFilter += ')'
+	EndIf
+
+	::jResponse["itens"]    := JsonObject():New()
+
+	cQuery += "SELECT R_E_C_N_O_ AS ID, "
+	cQuery += "C1_NUM AS NUM, C1_ITEM AS ITEM, C1_PRODUTO AS PRODUTO, C1_DESCRI AS DESCR, "
+	cQuery += " C1_UM AS UM, C1_QUANT AS QUANT, C1_COTACAO AS COTACAO, C1_FORNECE AS FORNECE "
+	cQuery += "FROM " + RetSqlName("SC1") + " SC1"
+	cQuery += " WHERE SC1.D_E_L_E_T_ <> '*'
+	If !Empty(cFiltro) .AND. cFiltro <> 'null'
+		cQuery += " AND C1_NUM IN "+ cFilter
+	EndIf
+	If !Empty(cCotado) .AND. cCotado <> 'null'
+		cQuery += " AND C1_COTACAO = ''"
+
+	EndIf
+
+
+	MpSysOpenQuery(cQuery, "solicitacoes")
+
+	aSolicitacoes     := {}
+
+	While solicitacoes->(!EoF())
+		aAdd(aSolicitacoes, { solicitacoes-> ID, solicitacoes->NUM, solicitacoes-> ITEM, solicitacoes-> PRODUTO,;
+			solicitacoes-> DESCR, solicitacoes->UM, solicitacoes->QUANT, solicitacoes-> COTACAO, solicitacoes-> FORNECE })
+		solicitacoes->(DbSkip())
+	End
+
+	If Len(aSolicitacoes) > 0
+		::jResponse["itens"]["solicitacoes"] := Array(Len(aSolicitacoes))
+		For i := 1 to Len(aSolicitacoes)
+			If len(AllTrim(aSolicitacoes[i][8])) == 0 //nao tem cotacao
+				legenda := 'pendente'
+			Else
+				legenda := 'cotado'
+			EndIF
+			::jResponse["itens"]["solicitacoes"][i]  := JsonObject():new()
+			::jResponse["itens"]["solicitacoes"][i]["id"]         := aSolicitacoes[i,1]
+			::jResponse["itens"]["solicitacoes"][i]["num"]        := AllTrim(aSolicitacoes[i,2])
+			::jResponse["itens"]["solicitacoes"][i]["item"]   	  := AllTrim(aSolicitacoes[i,3])
+			::jResponse["itens"]["solicitacoes"][i]["produto"]    := AllTrim(aSolicitacoes[i,4])
+			::jResponse["itens"]["solicitacoes"][i]["desc"]       := AllTrim(aSolicitacoes[i,5])
+			::jResponse["itens"]["solicitacoes"][i]["unidade"]    := AllTrim(aSolicitacoes[i,6])
+			::jResponse["itens"]["solicitacoes"][i]["quantidade"] := aSolicitacoes[i,7]
+			//::jResponse["itens"]["solicitacoes"][i]["fornecedor"] := AllTrim(aSolicitacoes[i,9])
+			::jResponse["itens"]["solicitacoes"][i]["legenda"]    := legenda
+		Next
+	EndIf
+
+	solicitacoes->(DbCloseArea())
+
+Return ::jResponse
+
+Method cotacoes(cFiltro as Character) as Json Class SoliciteService
+
+	Local cQuery          as Character
+	Local cFilter         as Character
+	Local aCotacoes       as Array
+	Local aFiltro         as Array
+	Local i               as Numeric
+	Local legenda         as Character
+
+	If !Empty(cFiltro) .AND. cFiltro <> 'null'
+		cFilter := '('
+		aFiltro := Separa(cFiltro, ',')
+		for i:= 1 to len(aFiltro)
+			If i != len(aFiltro)
+				cFilter += "'"+aFiltro[i]+"', "
+			else
+				cFilter += "'"+aFiltro[i]+"'"
+			EndIf
+		next
+		cFilter += ')'
+	EndIf
+
+	::jResponse["itens"]    := JsonObject():New()
+
+	cQuery += "SELECT R_E_C_N_O_ AS ID, "
+	cQuery += "C8_NUM AS NUM, C8_ITEM AS ITEM, C8_PRODUTO AS PRODUTO, C8_LOJA AS LOJA, "
+	cQuery += "C8_UM AS UM, C8_QUANT AS QUANT, C8_NUMPRO AS PROPOSTA, C8_FORNECE AS FORNECE, C8_PRECO AS PRECO "
+	cQuery += "FROM " + RetSqlName("SC8") + " SC8"
+	cQuery += " WHERE SC8.D_E_L_E_T_ <> '*'
+	If !Empty(cFiltro) .AND. cFiltro <> 'null'
+		cQuery += " AND C8_NUM IN "+ cFilter
+	EndIf
+
+
+	MpSysOpenQuery(cQuery, "cotacoes")
+
+	aCotacoes     := {}
+
+	While cotacoes->(!EoF())
+		aAdd(aCotacoes, { cotacoes-> ID, cotacoes->NUM, cotacoes-> ITEM, cotacoes-> PRODUTO,;
+			cotacoes->UM, cotacoes->QUANT, cotacoes-> PROPOSTA, cotacoes-> FORNECE, cotacoes->PRECO, cotacoes-> LOJA })
+		cotacoes->(DbSkip())
+	End
+
+	If Len(aCotacoes) > 0
+		::jResponse["itens"]["cotacoes"] := Array(Len(aCotacoes))
+		For i := 1 to Len(aCotacoes)
+			If aCotacoes[i][9] == 0 //nao proposta o preço é zero
+				legenda := 'pendente'
+			Else
+				legenda := 'analise'
+			EndIF
+			::jResponse["itens"]["cotacoes"][i]  := JsonObject():new()
+			::jResponse["itens"]["cotacoes"][i]["id"]         := aCotacoes[i,1]
+			::jResponse["itens"]["cotacoes"][i]["num"]        := AllTrim(aCotacoes[i,2])
+			//::jResponse["itens"]["cotacoes"][i]["item"]   	  := AllTrim(aCotacoes[i,3])
+			::jResponse["itens"]["cotacoes"][i]["produto"]    := AllTrim(aCotacoes[i,4])
+			::jResponse["itens"]["cotacoes"][i]["unidade"]    := AllTrim(aCotacoes[i,5])
+			::jResponse["itens"]["cotacoes"][i]["quantidade"] := aCotacoes[i,6]
+			::jResponse["itens"]["cotacoes"][i]["proposta"]   := Alltrim(aCotacoes[i,7])
+			::jResponse["itens"]["cotacoes"][i]["fornecedor"] := Alltrim(aCotacoes[i,8])
+			::jResponse["itens"]["cotacoes"][i]["preco"]      := aCotacoes[i,9]
+			::jResponse["itens"]["cotacoes"][i]["loja"]       := Alltrim(aCotacoes[i,10])
+			::jResponse["itens"]["cotacoes"][i]["legenda"]    := legenda
+		Next
+	EndIf
+
+	cotacoes->(DbCloseArea())
+
+Return ::jResponse
+
+Method fornecedoresAmarrados(cFiltro as Character, cCodigos as Character) as Json Class SoliciteService
+
+	Local cQuery          as Character
+	Local cFilter         as Character
+	Local aFornecedores   as Array
+	Local aFiltro         as Array
+	Local i               as Numeric
+
+	If !Empty(cFiltro) .AND. cFiltro <> 'null'
+		cFilter := '('
+		aFiltro := Separa(cFiltro, ',')
+		for i:= 1 to len(aFiltro)
+			If i != len(aFiltro)
+				cFilter += "'"+aFiltro[i]+"', "
+			else
+				cFilter += "'"+aFiltro[i]+"'"
+			EndIf
+		next
+		cFilter += ')'
+	EndIf
+/* 
+	If !Empty(cCodigos) .AND. cCodigos <> 'null'
+		cCodes := '('
+		aFiltro := Separa(cCodigos, ',')
+		for i:= 1 to len(aFiltro)
+			If i != len(aFiltro)
+				cCodes += "'"+aFiltro[i]+"', "
+			else
+				cCodes += "'"+aFiltro[i]+"'"
+			EndIf
+		next
+		cCodes += ')'
+	EndIf */
+
+	cQuery += "SELECT "
+	cQuery += "A5_PRODUTO AS PRODUTO, A2_COD AS FORNECEDOR, A2_LOJA AS LOJA, A2_NOME AS NOME "
+	cQuery += "FROM " + RetSqlName("SA2") + " SA2 LEFT JOIN " + RetSqlName("SA5") + " SA5 "
+	cQuery += "ON A5_LOJA=A2_LOJA AND A5_FORNECE=A2_COD "
+	cQuery += "WHERE SA2.D_E_L_E_T_ <> '*' "
+	If !Empty(cCodigos) .AND. cCodigos <> 'null'
+		cQuery += "AND (A5_PRODUTO='"+cCodigos+"' OR A5_PRODUTO IS NULL) "
+	EndIf
+	If !Empty(cFiltro) .AND. cFiltro <> 'null'
+		cQuery += " AND A2_NOME IN "+ cFilter
+	EndIf
+	cQuery += "ORDER BY A5_PRODUTO DESC"
+
+	MpSysOpenQuery(cQuery, "fornecedores")
+
+	aFornecedores := {}
+
+	While fornecedores->(!EoF())
+		aAdd(aFornecedores, { fornecedores-> PRODUTO, fornecedores->FORNECEDOR, fornecedores-> LOJA, fornecedores-> NOME })
+		fornecedores->(DbSkip())
+	End
+
+
+	If Len(aFornecedores) > 0
+		::jResponse["items"] := Array(Len(aFornecedores))
+		For i := 1 to Len(aFornecedores)
+			::jResponse["items"][i]  := JsonObject():new()
+			::jResponse["items"][i]["produto"]     := AllTrim(aFornecedores[i,1])
+			::jResponse["items"][i]["fornecedor"]  := AllTrim(aFornecedores[i,2])
+			::jResponse["items"][i]["loja"]   	   := AllTrim(aFornecedores[i,3])
+			::jResponse["items"][i]["nome"]    	   := AllTrim(aFornecedores[i,4])
+			//::jResponse["items"][i]["produto"]     := AllTrim(aFornecedores[i,5])
+		Next
+	EndIf
+
+	fornecedores->(DbCloseArea())
+
+
+Return ::jResponse
+
+Method fornecedores(cFiltro as Character, cCodigos as Character) as Json Class SoliciteService
+
+	Local cQuery          as Character
+	Local cFilter         as Character
+	Local cCodes          as Character
+	Local aFornecedores   as Array
+	Local aFiltro         as Array
+	Local i               as Numeric
+
+	If !Empty(cFiltro) .AND. cFiltro <> 'null'
+		cFilter := '('
+		aFiltro := Separa(cFiltro, ',')
+		for i:= 1 to len(aFiltro)
+			If i != len(aFiltro)
+				cFilter += "'"+aFiltro[i]+"', "
+			else
+				cFilter += "'"+aFiltro[i]+"'"
+			EndIf
+		next
+		cFilter += ')'
+	EndIf
+
+	If !Empty(cCodigos) .AND. cCodigos <> 'null'
+		cCodes := '('
+		aFiltro := Separa(cCodigos, ',')
+		for i:= 1 to len(aFiltro)
+			If i != len(aFiltro)
+				cCodes += "'"+aFiltro[i]+"', "
+			else
+				cCodes += "'"+aFiltro[i]+"'"
+			EndIf
+		next
+		cCodes += ')'
+	EndIf
+
+	cQuery += "SELECT "
+	cQuery += "R_E_C_N_O_ AS ID, A2_COD AS FORNECEDOR, A2_LOJA AS LOJA, A2_NOME AS NOME "
+	cQuery += "FROM " + RetSqlName("SA2") + " SA2
+	cQuery += " WHERE SA2.D_E_L_E_T_ <> '*'"
+	If !Empty(cFiltro) .AND. cFiltro <> 'null'
+		cQuery += " AND A2_NOME IN "+ cFilter
+	EndIf
+	If !Empty(cCodes) .AND. cCodes <> 'null'
+		cQuery += " AND R_E_C_N_O_ IN "+ cCodes
+	EndIf
+	cQuery += "ORDER BY A2_COD"
+
+	MpSysOpenQuery(cQuery, "fornecedores")
+
+	aFornecedores := {}
+
+	While fornecedores->(!EoF())
+		aAdd(aFornecedores, { fornecedores-> ID, fornecedores->FORNECEDOR, fornecedores-> LOJA, fornecedores-> NOME })
+		fornecedores->(DbSkip())
+	End
+
+
+	If Len(aFornecedores) > 0
+		::jResponse["items"] := Array(Len(aFornecedores))
+		For i := 1 to Len(aFornecedores)
+			::jResponse["items"][i]  := JsonObject():new()
+			::jResponse["items"][i]["id"]          := aFornecedores[i,1]
+			::jResponse["items"][i]["fornecedor"]  := AllTrim(aFornecedores[i,2])
+			::jResponse["items"][i]["loja"]   	   := AllTrim(aFornecedores[i,3])
+			::jResponse["items"][i]["nome"]    	   := AllTrim(aFornecedores[i,4])
+		Next
+	EndIf
+
+	fornecedores->(DbCloseArea())
+
+
+Return ::jResponse
+
+Method incluirSolicitacao(aBody as Array) as Json Class SoliciteService
+
+/* 	Situação 1: somente os produtos  -> Faz a solicitação
+	Situação 2: Produtos e fornecedores -> Faz a solicitação e cotação
+*/
+	Local aCabec         as Array
+	Local aLinha         as Array
+	Local aLinhas        as Array
+	Local aCotacao       as Array
+	Local aRet           as Character
+	Local aDados         as Array
+	Local nX             as Numeric
+	Local cNumSol        as Numeric
+	//Local cTemp          as Character
+	Private lMsHelpAuto  as Logical
+	Private lMsErroAuto  as Logical
+	Private lAutoErrNoFile  as Logical
+	//Local cotacao   as Logical
+	aLinhas := {}
+	lMsHelpAuto := .T.
+	lMsErroAuto := .F.
+	lAutoErrNoFile	:= .T.
+
+	aCotacao := {}
+	aDados := {}
+
+
+	::jResponse["message"]    := JsonObject():New()
+
+	cNumSol := GetSxeNum("SC1","C1_NUM")
+
+	aCabec := {{"C1_NUM",cNumSol,NIL},;
+		{"C1_SOLICIT",Alltrim(UsrRetName(__CUSERID)),NIL},;
+		{"C1_NOMAPRO",Alltrim(UsrRetName(__CUSERID)),NIL},;
+		{"C1_EMISSAO",dDataBase,NIL},;
+		{"C1_FILIAL",cFilAnt,NIL}}
+
+	for nX := 1 to len(aBody)
+		If !Empty(aBody[nX]['fornecedor']) //Se tem fornecedor
+			aAdd(aCotacao, {cNumSol, aBody[nX]['codigo'], aBody[nX]['fornecedor'] } )
+		EndIf
+		aLinha := {{"C1_ITEM", Padl(nX,4,'0')/* 0001 */,Nil},;
+			{"C1_PRODUTO", aBody[nX]['codigo']  ,Nil},;
+			{"C1_QUANT"  , val(aBody[nX]['quantidade']), Nil}}
+
+		aAdd(aLinhas,aLinha)
+	next nX
+
+	// Teste de Inclusao
+	MSExecAuto({|x,y,z| mata110(x,y,z)},aCabec,aLinhas,3)
+
+	If !lMsErroAuto
+		ConfirmSx8()
+
+		//se o array de cotação não estiver vazio eu chamo a cotação
+		If !Empty(aCotacao)
+			//Cotacao(cNumSol, aCotacao)
+			aRet := U_GeraCot(aCotacao)
+			If !Empty(aRet)
+				//U_sendwork(aRet)
+				::jResponse["message"] := 'Solicitacao e Cotacao Incluida com sucesso!'
+				::jResponse['code']    := 200
+			Else
+				::jResponse["message"] := 'Solicitacao Incluida com sucesso!'
+				::jResponse['code']    := 200
+			EndIf
+		Else
+			::jResponse["message"] := 'Solicitacao Incluida com sucesso!'
+			::jResponse['code']    := 200
+		EndIf
+
+		//MsgInfo("Solicitação de Compra do produto " + aBody[1,2] + " incluída com Sucesso!")
+	Else
+		aLogAuto := GetAutoGRLog()
+		::jResponse["message"] := 'Houve um erro ao tentar incluir a solicitação'
+		::jResponse['code']    := 500
+		//MostraErro()
+	EndIf
+
+Return ::jResponse
+
+
+Method alterarSolicitacao(aBody as Array) as Json Class SoliciteService
+
+/*	Situação 3: Produtos e Fornecedores - alteração*/
+	Local nX        as Numeric
+	Local aCotacao  as Array
+	Local aRet      as Character
+	aCotacao := {}
+
+	::jResponse["message"]    := JsonObject():New()
+
+	//chama a cotação
+	for nX := 1 to len(aBody)
+		If !Empty(aBody[nX]['fornecedores'])
+			aAdd(aCotacao, {aBody[nX]['numSol'], aBody[nX]['produto'], aBody[nX]['fornecedores']})
+		EndIf
+
+	next nX
+
+	//se o array de cotação não estiver vazio eu chamo a cotação
+	If !Empty(aCotacao)
+		//Cotacao(cNumSol, aCotacao)
+		aRet := U_GeraCot(aCotacao)//fazer aSort para organizar por fornecedor para chamada de função do workflow
+		If !Empty(aRet)
+			//U_sendwork(aRet)
+			::jResponse["message"] := 'Cotacao Gerada com sucesso!'
+			::jResponse['code']    := 200
+		Else
+			::jResponse["message"] := 'Cotação não foi gerada!'
+			::jResponse['code']    := 500
+		EndIf
+	EndIf
+
+Return ::jResponse
+
+Method altera(aBody as Array) as Json Class SoliciteService
+
+	Local aCabec         as Array
+	Local aLinha         as Array
+	Local aLinhas        as Array
+	Local cQuery         as Character
+	Local nX             as Numeric
+	Local nItem          as Numeric
+	Private lMsHelpAuto  as Logical
+	Private lMsErroAuto  as Logical
+	Private lAutoErrNoFile  as Logical
+
+	lMsHelpAuto := .T.
+	lMsErroAuto := .F.
+	lAutoErrNoFile	:= .T.
+	aLinhas := {}
+	nItem := 0
+
+	::jResponse["message"]    := JsonObject():New()
+
+	cQuery += "SELECT "
+	cQuery += "* "
+	cQuery += "FROM " + RetSqlName("SC1") + " SC1
+	cQuery += " WHERE SC1.D_E_L_E_T_ <> '*'"
+	cQuery += " AND C1_NUM = "+ aBody[1]['numSol']
+
+	MpSysOpenQuery(cQuery, "solicitacoes")
+
+	solicitacoes->(DbGoTop())
+	aCabec := {{"C1_FILIAL",solicitacoes->C1_FILIAL,NIL},;
+		{"C1_NUM",solicitacoes-> C1_NUM,NIL},;
+		{"C1_SOLICIT", solicitacoes->C1_SOLICIT,NIL},;
+		{"C1_EMISSAO",sToD(solicitacoes->C1_EMISSAO),NIL}}
+	//{"C1_FILENT",solicitacoes->C1_FILENT,NIL},;
+
+	DbSelectArea('SC1')
+	for nX := 1 to len(aBody)
+		If aBody[nX]['legenda'] != 'cotado' .AND. aBody[nX]['exclui'] != .T.
+			nItem := nItem + 1
+			aLinha := {{"C1_ITEM", Padl(nItem,4,'0')/* 0001 */,Nil},;
+				{"C1_PRODUTO", PadR(aBody[nX]['produto'],TamSX3("C1_PRODUTO")[1])  ,Nil},;
+				{"C1_QUANT"  , val(aBody[nX]['quantidade']), Nil}}
+
+			aAdd(aLinhas,aLinha)
+		ElseIf aBody[nX]['exclui'] == .T.
+			nItem := nItem + 1
+			SC1->(DbSelectArea('SC1'))
+			SC1->(DbSetOrder(2)) //Filial + produto + numSolic
+			SC1->(DbGoTop())
+			If DbSeek(xFilial("SC1") + PadR(aBody[nX]['produto'],TamSX3("C1_PRODUTO")[1]) + aBody[1]['numSol'])
+				RecLock('SC1',.F.)
+				//SC1->R_E_C_D_E_L_ := solicitacoes->R_E_C_N_O_
+				DbDelete()
+				SC1->(MsUnlock())
+				::jResponse["message"] := 'Solicitacao alterada com sucesso!'
+				::jResponse['code']    := 200
+
+			EndIf
+
+		EndIf
+
+	next
+
+
+	If len(aLinhas) > 0
+		// Teste de Alteração
+		MSExecAuto({|x,y,Z| mata110(x,y,Z)},aCabec,aLinhas,4) //opcao 4- alteracao
+
+		If !lMsErroAuto
+			::jResponse["message"] := 'Solicitacao alterada com sucesso!'
+			::jResponse['code']    := 200
+
+		Else
+			aLogAuto := GetAutoGRLog()
+			::jResponse["message"] := 'Houve um erro ao tentar alterar a solicitacao'
+			::jResponse['code']    := 500
+
+		EndIf
+	EndIf
+
+
+
+Return ::jResponse
+
+Method deletaSolicitacao(cNumSol as Character) as Json Class SoliciteService
+
+	Local aCabec         as Array
+	Local aLinha         as Array
+	Local aLinhas        as Array
+	Local aSolicitacoes  as Array
+	Local cQuery         as Character
+	Private lMsHelpAuto  as Logical
+	Private lMsErroAuto  as Logical
+	Private lAutoErrNoFile  as Logical
+
+	lMsHelpAuto := .T.
+	lMsErroAuto := .F.
+	lAutoErrNoFile	:= .T.
+	aLinhas := {}
+
+	::jResponse["message"]    := JsonObject():New()
+
+	cQuery += "SELECT "
+	cQuery += "* "
+	cQuery += "FROM " + RetSqlName("SC1") + " SC1
+	cQuery += " WHERE SC1.D_E_L_E_T_ <> '*'"
+	cQuery += " AND C1_NUM = "+ cNumSol
+
+	MpSysOpenQuery(cQuery, "solicitacoes")
+
+	aSolicitacoes := {}
+
+	solicitacoes->(DbGoTop())
+	aCabec := {{"C1_FILIAL",solicitacoes->C1_FILIAL,NIL},;
+		{"C1_NUM",solicitacoes-> C1_NUM,NIL},;
+		{"C1_EMISSAO",solicitacoes->C1_EMISSAO,NIL}}
+	//{"C1_FILENT",solicitacoes->C1_FILENT,NIL},;
+		//{"C1_SOLICIT", solicitacoes->C1_SOLICIT,NIL},;
+
+	solicitacoes->(DbGoTop())
+
+	While solicitacoes->(!EoF())
+		aLinha := {{"C1_ITEM", solicitacoes->C1_ITEM,Nil},;
+			{"C1_PRODUTO", solicitacoes->C1_PRODUTO,Nil},;
+			{"C1_UM", solicitacoes->C1_UM,Nil},;
+			{"C1_DESCRI", solicitacoes->C1_DESCRI,Nil},;
+			{"C1_QUANT"  , solicitacoes->C1_QUANT, Nil}}
+//{"C1_DATPRF"  , solicitacoes->C1_DATPRF, Nil},}
+
+		aAdd(aLinhas,aLinha)
+		solicitacoes->(DbSkip())
+	End
+
+
+	::jResponse["message"] := 'Testando'
+
+	// Teste de Inclusao
+	MSExecAuto({|x,y,Z| mata110(x,y,Z)},aCabec,aLinhas,5) //opcao 5 - exclusao
+
+	If !lMsErroAuto
+		//ConfirmSx8()
+		::jResponse["message"] := "Solicitacao excluida com sucesso!"
+		::jResponse['code']    := 200
+	Else
+		aLogAuto := GetAutoGRLog()
+		::jResponse["message"] := 'Houve um erro ao tentar excluir a Solicitacao'
+		::jResponse['code']    := 500
+		//MostraErro()
+	EndIf
+
+Return ::jResponse
+
+Method execute() as Json Class SoliciteService
+Return ::jResponse
